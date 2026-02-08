@@ -94,7 +94,7 @@ function App() {
         </div>
       </div>
 
-      <button onClick={handleResearch} disabled={loading || !question}>
+      <button onClick={handleResearch} disabled={loading}>
         {loading ? "🔄 Researching..." : " Research"}
       </button>
 
@@ -133,7 +133,7 @@ function App() {
           </div>
 
           <div className="meta-info">
-             Processed in {result.processing_time.toFixed(2)}s |  Used{" "}
+            Processed in {result.processing_time.toFixed(2)}s | Used{" "}
             {result.queries_used.length} search queries
           </div>
         </div>
@@ -141,10 +141,10 @@ function App() {
 
       <div className="footer-links">
         <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
-           API Documentation
+          API Documentation
         </a>
         <a href="http://127.0.0.1:8000/health" target="_blank" rel="noreferrer">
-           Health Check
+          Health Check
         </a>
       </div>
     </div>
