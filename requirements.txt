@@ -22,3 +22,8 @@ pytest-asyncio==0.23.3
 
 # For better error messages
 rich==13.7.0
+
+# Database
+motor==3.3.2
+pymongo==4.9.1
+dnspython==2.4.2

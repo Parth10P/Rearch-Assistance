@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 from datetime import datetime
-from openai import OpenAI
+
 import google.generativeai as genai
 import requests
 import os
@@ -16,15 +16,31 @@ import aiohttp
 import ssl
 import certifi
 from enum import Enum
+import json
 
 
 load_dotenv()
 
 
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-gemini_model = genai.GenerativeModel('gemini-flash-latest')
+gemini_model = genai.GenerativeModel('gemini-flash-latest')  # Back to working model with rate limiting
 
 serpapi_key = os.getenv('SERPAPI_KEY')
+mongo_uri = os.getenv('MONGO_URI')
+
+# Initialize MongoDB
+from motor.motor_asyncio import AsyncIOMotorClient
+try:
+    mongo_client = AsyncIOMotorClient(
+        mongo_uri,
+        tlsAllowInvalidCertificates=True  # Disable SSL verification for development
+    )
+    db = mongo_client.research_assistant
+    history_collection = db.history
+    print("✅ Connected to MongoDB")
+except Exception as e:
+    print(f"❌ Failed to connect to MongoDB: {e}")
+    history_collection = None
 
 # ============================================
 # FASTAPI APP CONFIGURATION
@@ -47,8 +63,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory storage for history (use database in production)
-research_history = []
+# Rate limiting for Gemini API
+last_request_time = 0
+min_request_interval = 5  # seconds between requests (more conservative)
+
+def rate_limit_gemini():
+    """Simple rate limiting to prevent quota exhaustion"""
+    global last_request_time
+    current_time = time.time()
+    time_since_last = current_time - last_request_time
+    
+    if time_since_last < min_request_interval:
+        sleep_time = min_request_interval - time_since_last
+        time.sleep(sleep_time)
+    
+    last_request_time = time.time()
 
 # ============================================
 # PYDANTIC MODELS (Request/Response Schemas)
@@ -102,13 +131,17 @@ class HealthResponse(BaseModel):
     status: str
     gemini_configured: bool
     serpapi_configured: bool
+    mongo_configured: bool = False
     timestamp: str
     model: str = "Google Gemini Flash Latest"
+
+    timestamp: str
 
 class ErrorResponse(BaseModel):
     error: str
     detail: str
     timestamp: str
+
 
 # ============================================
 # CORE RESEARCH FUNCTIONS
@@ -120,6 +153,9 @@ def break_down_query(question: str) -> List[str]:
     FREE - No cost!
     """
     try:
+        # Rate limiting
+        rate_limit_gemini()
+        
         prompt = f"""Break down this question into 3-4 specific, diverse search queries that will help find comprehensive information.
 
 Question: {question}
@@ -137,11 +173,31 @@ Do not include any explanation, just the list."""
             )
         )
         
-        # Parse response
-        queries_str = response.text.strip()
+        # Parse response - handle both simple and complex responses
+        try:
+            queries_str = response.text.strip()
+        except Exception:
+            # Handle complex responses where .text is not available
+            queries_str = response.candidates[0].content.parts[0].text.strip()
+        
         # Remove markdown code blocks if present
         queries_str = queries_str.replace('```python', '').replace('```', '').strip()
-        queries = eval(queries_str)
+        
+        # Try to parse as JSON first, then fallback to eval
+        try:
+            import json
+            queries = json.loads(queries_str)
+        except (json.JSONDecodeError, ValueError):
+            try:
+                queries = eval(queries_str)
+            except Exception:
+                # Fallback: split by newlines and clean up
+                lines = [line.strip().strip('"\']') for line in queries_str.split('\n') if line.strip()]
+                queries = [line for line in lines if line and not line.startswith('[') and not line.startswith(']')]
+        
+        # Ensure we have a list
+        if not isinstance(queries, list):
+            queries = [queries_str]
         
         return queries
         
@@ -209,9 +265,10 @@ def extract_relevant_info(search_results: List[dict], max_sources: int = 10) -> 
     seen_urls = set()
     
     for result in search_results:
-        url = result.get('link', '')
+        # Try different possible URL field names
+        url = result.get('link') or result.get('url') or result.get('href', '')
         
-        if url in seen_urls:
+        if url in seen_urls or not url:
             continue
         
         source = Source(
@@ -259,6 +316,9 @@ Available information:
     }
     
     try:
+        # Rate limiting
+        rate_limit_gemini()
+        
         prompt = f"""You are an expert research assistant. Synthesize information from multiple sources into a clear, well-structured answer.
 
 Guidelines:
@@ -285,7 +345,12 @@ Provide a well-researched answer based on these sources. Use proper citations [1
             )
         )
         
-        return response.text
+        # Handle both simple and complex responses
+        try:
+            return response.text
+        except Exception:
+            # Handle complex responses
+            return response.candidates[0].content.parts[0].text
         
     except Exception as e:
         return f"Error synthesizing answer: {str(e)}"
@@ -305,6 +370,7 @@ async def health_check():
         status="healthy",
         gemini_configured=bool(os.getenv('GEMINI_API_KEY')),
         serpapi_configured=bool(os.getenv('SERPAPI_KEY')),
+        mongo_configured=bool(history_collection is not None),
         timestamp=datetime.now().isoformat()
     )
 
@@ -364,8 +430,13 @@ async def research_question(request: ResearchRequest):
             processing_time=processing_time
         )
         
-        # Save to history
-        research_history.append(response.dict())
+        # Save to history (MongoDB or Memory)
+        history_item = response.dict()
+        
+        if history_collection is not None:
+            await history_collection.insert_one(history_item)
+        else:
+            research_history_memory.append(history_item)
         
         return response
         
@@ -377,11 +448,24 @@ async def research_question(request: ResearchRequest):
 @app.get("/history")
 async def get_history(limit: int = 10):
     """
-    Get recent research history
+    Get recent research history from MongoDB
     """
+    if history_collection is not None:
+        # Fetch from MongoDB
+        cursor = history_collection.find().sort("timestamp", -1).limit(limit)
+        history = await cursor.to_list(length=limit)
+        
+        # Convert ObjectId to string for JSON serialization
+        for item in history:
+            if "_id" in item:
+                item["_id"] = str(item["_id"])
+    else:
+        # Fallback to memory
+        history = research_history_memory[-limit:]
+
     return {
-        "total": len(research_history),
-        "history": research_history[-limit:]
+        "total": await history_collection.count_documents({}) if history_collection is not None else len(research_history_memory),
+        "history": history
     }
 
 @app.delete("/history")
@@ -389,9 +473,14 @@ async def clear_history():
     """
     Clear research history
     """
-    global research_history
-    count = len(research_history)
-    research_history = []
+    if history_collection is not None:
+        result = await history_collection.delete_many({})
+        count = result.deleted_count
+    else:
+        global research_history_memory
+        count = len(research_history_memory)
+        research_history_memory = []
+        
     return {"message": f"Cleared {count} items from history"}
 
 # ============================================
