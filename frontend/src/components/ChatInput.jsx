@@ -36,98 +36,107 @@ const ChatInput = ({ onSend, isLoading, settings, onSettingsChange }) => {
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-4xl mx-auto grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Number of Sources
-              </label>
-              <select
-                value={settings.numSources}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    numSources: parseInt(e.target.value),
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                {[3, 5, 7, 10].map((num) => (
-                  <option key={num} value={num}>
-                    {num} sources
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="fixed bottom-6 left-0 right-0 z-50 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Settings Panel - Floating above input */}
+        {showSettings && (
+          <div className="mb-4 p-4 rounded-2xl glass-card animate-message-in">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Number of Sources
+                </label>
+                <select
+                  value={settings.numSources}
+                  onChange={(e) =>
+                    onSettingsChange({
+                      ...settings,
+                      numSources: parseInt(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                >
+                  {[3, 5, 7, 10].map((num) => (
+                    <option key={num} value={num}>
+                      {num} sources
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Detail Level
-              </label>
-              <select
-                value={settings.detailLevel}
-                onChange={(e) =>
-                  onSettingsChange({ ...settings, detailLevel: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="brief">Brief</option>
-                <option value="moderate">Moderate</option>
-                <option value="comprehensive">Comprehensive</option>
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Detail Level
+                </label>
+                <select
+                  value={settings.detailLevel}
+                  onChange={(e) =>
+                    onSettingsChange({
+                      ...settings,
+                      detailLevel: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="brief">Brief</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="comprehensive">Comprehensive</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Input Area */}
-      <div className="p-4">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            {/* Settings Button */}
-            <button
-              type="button"
-              onClick={() => setShowSettings(!showSettings)}
-              className={`flex-shrink-0 p-3 rounded-lg transition-colors ${
-                showSettings
-                  ? "bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-              title="Settings"
-            >
-              <Settings2 className="w-5 h-5" />
-            </button>
+        {/* Floating Input Bar */}
+        <form
+          onSubmit={handleSubmit}
+          className={`relative flex items-center gap-2 p-2 rounded-2xl glass-card transition-all duration-300 ${
+            input.trim() ? "shadow-lg ring-1 ring-primary-500/20" : "shadow-md"
+          }`}
+        >
+          {/* Settings Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-3 rounded-xl transition-all duration-200 ${
+              showSettings
+                ? "bg-primary-100/80 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-700/50 hover:text-gray-700 dark:hover:text-gray-200"
+            }`}
+            title="Settings"
+          >
+            <Settings2 className="w-5 h-5" />
+          </button>
 
-            {/* Text Input */}
-            <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask anything... (Shift+Enter for new line)"
-                rows={1}
-                className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 max-h-40"
-                disabled={isLoading}
-              />
-            </div>
+          {/* Text Input */}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything..."
+            rows={1}
+            className="flex-1 bg-transparent px-2 py-3 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none resize-none max-h-32 scrollbar-thin"
+            disabled={isLoading}
+            style={{ minHeight: "24px" }}
+          />
 
-            {/* Send Button */}
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="flex-shrink-0 p-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:from-primary-600 hover:to-secondary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </button>
-          </div>
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className={`p-3 rounded-xl transition-all duration-300 ${
+              input.trim() && !isLoading
+                ? "bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5 hover:scale-105"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
+          </button>
         </form>
       </div>
     </div>

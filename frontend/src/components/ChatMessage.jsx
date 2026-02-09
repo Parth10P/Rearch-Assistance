@@ -15,36 +15,36 @@ const ChatMessage = ({ message, isUser }) => {
 
   return (
     <div
-      className={`flex gap-4 p-6 animate-message-in ${
-        isUser ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-900"
+      className={`group flex gap-4 p-6 mb-4 rounded-3xl transition-all duration-300 ${
+        isUser
+          ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg ml-auto max-w-[85%]"
+          : "bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-sm mr-auto max-w-[95%]"
       }`}
     >
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
           isUser
-            ? "bg-gradient-to-br from-blue-500 to-purple-600"
-            : "bg-gradient-to-br from-purple-500 to-pink-600"
+            ? "bg-white/20 text-white backdrop-blur-sm"
+            : "bg-gradient-to-br from-secondary-500 to-pink-600 text-white"
         }`}
       >
-        {isUser ? (
-          <User className="w-5 h-5 text-white" />
-        ) : (
-          <Bot className="w-5 h-5 text-white" />
-        )}
+        {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
       </div>
 
       {/* Message Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-semibold text-gray-900 dark:text-white">
-            {isUser ? "You" : "AI Research Assistant"}
+          <span
+            className={`font-semibold text-sm ${isUser ? "text-blue-50" : "text-gray-900 dark:text-white"}`}
+          >
+            {isUser ? "You" : "Research Assistant"}
           </span>
 
           {!isUser && (
             <button
               onClick={handleCopy}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-all text-gray-400 dark:text-gray-400"
               title="Copy response"
             >
               {copied ? (
@@ -57,13 +57,15 @@ const ChatMessage = ({ message, isUser }) => {
         </div>
 
         {/* Message text */}
-        <div className="prose dark:prose-invert max-w-none">
+        <div
+          className={`prose max-w-none ${isUser ? "prose-invert text-white" : "dark:prose-invert"}`}
+        >
           {isUser ? (
-            <p className="text-gray-800 dark:text-gray-200">
+            <p className="whitespace-pre-wrap leading-relaxed">
               {message.content}
             </p>
           ) : (
-            <div className="text-gray-700 dark:text-gray-300">
+            <div className="leading-relaxed text-gray-800 dark:text-gray-200">
               <ReactMarkdown>{message.content}</ReactMarkdown>
             </div>
           )}
@@ -71,10 +73,10 @@ const ChatMessage = ({ message, isUser }) => {
 
         {/* Sources (only for assistant messages) */}
         {!isUser && message.sources && message.sources.length > 0 && (
-          <div className="mt-6">
-            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-              <span className="w-1 h-4 bg-gradient-to-b from-primary-500 to-secondary-500 rounded-full"></span>
-              Sources ({message.sources.length})
+          <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-secondary-500 rounded-full animate-pulse"></span>
+              Sources Used
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {message.sources.map((source, idx) => (
@@ -86,22 +88,16 @@ const ChatMessage = ({ message, isUser }) => {
 
         {/* Metadata */}
         {!isUser && message.metadata && (
-          <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-gray-400 dark:text-gray-500 font-mono">
             {message.metadata.processingTime && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+              <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/50 px-2 py-1 rounded-full">
+                <span className="w-1 h-1 rounded-full bg-green-500"></span>
                 {message.metadata.processingTime.toFixed(2)}s
               </span>
             )}
-            {message.metadata.queriesUsed && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                {message.metadata.queriesUsed.length} queries
-              </span>
-            )}
             {message.metadata.model && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+              <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/50 px-2 py-1 rounded-full">
+                <span className="w-1 h-1 rounded-full bg-purple-500"></span>
                 {message.metadata.model}
               </span>
             )}

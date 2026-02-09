@@ -15,68 +15,76 @@ const Header = ({
         <div className="flex items-center justify-between">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                />
-              </svg>
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-200"></div>
+              <div className="relative p-2 bg-white dark:bg-gray-800 rounded-lg ring-1 ring-gray-900/5 dark:ring-gray-100/10">
+                <svg
+                  className="w-6 h-6 text-primary-600 dark:text-primary-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
+              </div>
             </div>
             <div>
-              <h1 className="text-xl font-bold gradient-text">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 Research Assistant
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Powered by Gemini • {messageCount} messages
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  Online
+                </span>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  {messageCount} messages
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {/* Export Chat */}
             {messageCount > 0 && (
               <button
                 onClick={onExportChat}
-                className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
-                title="Export conversation"
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                title="Export Chat"
               >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
+                <Download className="w-5 h-5" />
               </button>
             )}
-
-            {/* Clear Chat */}
             {messageCount > 0 && (
               <button
                 onClick={onClearChat}
-                className="px-3 py-2 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-2"
-                title="Clear conversation"
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
+                title="Clear Chat"
               >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Clear</span>
+                <Trash2 className="w-5 h-5" />
               </button>
             )}
-
-            {/* Dark Mode Toggle */}
+            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
             <button
               onClick={onToggleDarkMode}
-              className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              title="Toggle theme"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative overflow-hidden"
+              title="Toggle Dark Mode"
             >
-              {darkMode ? (
-                <Sun className="w-5 h-5 text-yellow-500" />
-              ) : (
-                <Moon className="w-5 h-5 text-gray-700" />
-              )}
+              <div className="relative z-10">
+                {darkMode ? (
+                  <Sun className="w-5 h-5 text-amber-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-indigo-600" />
+                )}
+              </div>
             </button>
           </div>
         </div>
