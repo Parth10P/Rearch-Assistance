@@ -1,5 +1,5 @@
 import React from "react";
-import { ExternalLink, FileText } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import PropTypes from "prop-types";
 
 const SourceCard = ({ source, index }) => {
@@ -8,21 +8,20 @@ const SourceCard = ({ source, index }) => {
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex flex-col h-full bg-white dark:bg-gray-800/80 hover:bg-primary-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-800 rounded-xl p-3 transition-all duration-300 hover:shadow-md hover:-translate-y-1 relative overflow-hidden"
+      className="group flex flex-col h-full bg-white dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-secondary-300 dark:hover:border-secondary-700 rounded-lg p-3 transition-all duration-200 hover:shadow-md"
     >
-      <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
-        <ExternalLink className="w-12 h-12" />
-      </div>
-
-      <div className="flex items-start gap-3 relative z-10">
-        <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-lg bg-primary-100 dark:bg-gray-700 text-xs font-semibold text-secondary-700 dark:text-primary-300">
           {index}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-            {source.title}
-          </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">
+              {source.title}
+            </h3>
+            <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+          </div>
+          <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 truncate mb-1.5">
             {new URL(source.url).hostname.replace("www.", "")}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">

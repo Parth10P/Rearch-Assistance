@@ -6,26 +6,45 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: "#e0e7ff",
-          100: "#c7d2fe",
-          200: "#a5b4fc",
-          300: "#818cf8",
-          400: "#6366f1", // Indigo-500
-          500: "#4f46e5", // Indigo-600
-          600: "#4338ca",
-          700: "#3730a3",
-          800: "#312e81",
-          900: "#1e1b4b",
+          50: "#FAF1E8",
+          100: "#F5E3D1",
+          200: "#EFD5BA",
+          300: "#EAC7A4",
+          400: "#E5B98D",
+          500: "#E0AB76", // Sandy Clay - warm, friendly
+          600: "#D58E47",
+          700: "#BA722A",
+          800: "#8B5520",
+          900: "#5D3915",
         },
         secondary: {
-          500: "#ec4899", // Pink-500
-          600: "#db2777", // Pink-600
+          50: "#F0E3E2",
+          100: "#E1C7C4",
+          200: "#D3ABA7",
+          300: "#C48F89",
+          400: "#B5736C",
+          500: "#A45A52", // Terracotta Clay - earthy, warm
+          600: "#884B44",
+          700: "#6D3C37",
+          800: "#512D29",
+          900: "#361E1B",
+        },
+        accent: {
+          50: "#FEEAE8",
+          100: "#FDD5D2",
+          200: "#FBC1BB",
+          300: "#FAACA5",
+          400: "#F9978E",
+          500: "#F88379", // Sweet Salmon - gentle, approachable
+          600: "#F54D3D",
+          700: "#E91F0C",
+          800: "#AE1709",
+          900: "#740F06",
         },
       },
       animation: {
-        "fade-in": "fadeIn 0.4s ease-out",
-        "slide-in": "slideIn 0.4s ease-out",
-        "pulse-slow": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "fade-in": "fadeIn 0.3s ease-out",
+        "slide-in": "slideIn 0.3s ease-out",
       },
       keyframes: {
         fadeIn: {

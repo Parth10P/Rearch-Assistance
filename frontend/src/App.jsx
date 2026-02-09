@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Toaster, toast } from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import Header from "./components/Header";
 import ChatMessage from "./components/ChatMessage";
 import ChatInput from "./components/ChatInput";
 import TypingIndicator from "./components/TypingIndicator";
+import BackgroundParticles from "./components/BackgroundParticles";
+import EmptyState from "./components/EmptyState";
 
 import { researchAPI } from "./services/api";
 
@@ -147,8 +150,20 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <Toaster position="top-right" />
+    <div className="flex flex-col h-screen relative overflow-hidden transition-colors duration-300">
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#fff',
+            color: '#333',
+            border: '1px solid #e0e0e0',
+          },
+        }}
+      />
+
+      {/* Animated Background */}
+      <BackgroundParticles />
 
       <Header
         darkMode={darkMode}
@@ -158,34 +173,50 @@ function App() {
         messageCount={messages.length}
       />
 
-      <main className="flex-1 overflow-hidden flex flex-col">
-        {/* Chat Messages */}
-        <div
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto scrollbar-thin"
-        >
-          <div className="max-w-4xl mx-auto">
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                isUser={message.isUser}
-              />
-            ))}
+      <main className="flex-1 overflow-hidden flex flex-col relative z-10">
+        {messages.length === 0 ? (
+          /* Empty State - Centered */
+          <EmptyState 
+            onSuggestionClick={handleSendMessage}
+            onSend={handleSendMessage}
+            isLoading={isLoading}
+            settings={settings}
+            onSettingsChange={setSettings}
+          />
+        ) : (
+          /* Chat Messages */
+          <>
+            <div
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto scrollbar-thin"
+            >
+              <div className="max-w-4xl mx-auto px-4 pb-32 pt-8">
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ChatMessage message={message} isUser={message.isUser} />
+                  </motion.div>
+                ))}
 
-            {isLoading && <TypingIndicator />}
+                {isLoading && <TypingIndicator />}
 
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
 
-        {/* Input Area */}
-        <ChatInput
-          onSend={handleSendMessage}
-          isLoading={isLoading}
-          settings={settings}
-          onSettingsChange={setSettings}
-        />
+            {/* Input Area */}
+            <ChatInput
+              onSend={handleSendMessage}
+              isLoading={isLoading}
+              settings={settings}
+              onSettingsChange={setSettings}
+            />
+          </>
+        )}
       </main>
     </div>
   );
