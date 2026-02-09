@@ -18,8 +18,8 @@
 - [Tech Stack & Rationale](#tech-stack--rationale)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [OR: for quick start](#or-for-quick-start)
 - [Detailed Setup .env](#detailed-setup)
-- [API Reference](#api-reference)
 
 ---
 
@@ -335,7 +335,7 @@ python3.13 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env  # fill in values
+cp .env.example .env  
 ```
 
 3. Setup frontend
@@ -344,7 +344,18 @@ cp .env.example .env  # fill in values
 cd ../frontend
 npm install
 ```
-
+----
+## OR: for quick start
+```bash
+  ./setup.sh
+```
+```
+cd backend && source venv/bin/activate && uvicorn app:app --reload
+````
+```
+cd frontend && npm run dev
+```
+---
 4. Run backend and frontend
 
 Backend (local dev):
