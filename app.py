@@ -23,7 +23,7 @@ load_dotenv()
 
 
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-gemini_model = genai.GenerativeModel('gemini-flash-latest')  # Back to working model with rate limiting
+gemini_model = genai.GenerativeModel('gemini-flash-latest')  
 
 serpapi_key = os.getenv('SERPAPI_KEY')
 mongo_uri = os.getenv('MONGO_URI')
