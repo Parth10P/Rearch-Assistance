@@ -61,7 +61,7 @@ app = FastAPI(
 # CORS middleware - allows frontend to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,7 +69,7 @@ app.add_middleware(
 
 # Rate limiting for Groq API
 last_request_time = 0
-min_request_interval = 5  # seconds between requests (more conservative)
+min_request_interval = 5 
 
 def rate_limit():
     """Simple rate limiting helper to prevent quota exhaustion"""
@@ -474,9 +474,7 @@ async def get_history(limit: int = 10):
 
 @app.delete("/history")
 async def clear_history():
-    """
-    Clear research history
-    """
+    
     if history_collection is not None:
         result = await history_collection.delete_many({})
         count = result.deleted_count
