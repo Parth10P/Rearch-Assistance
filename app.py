@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 from datetime import datetime
 
-import google.generativeai as genai
 import requests
 import os
 from dotenv import load_dotenv
@@ -17,13 +16,18 @@ import ssl
 import certifi
 from enum import Enum
 import json
+from openai import OpenAI
 
 
 load_dotenv()
 
 
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-gemini_model = genai.GenerativeModel('gemini-flash-latest')  
+# Initialize Groq client
+groq_client = OpenAI(
+    api_key=os.getenv('GROQ_API_KEY'),
+    base_url="https://api.groq.com/openai/v1"
+)
+groq_model = "mixtral-8x7b-32768"  # Groq's Mixtral model
 
 serpapi_key = os.getenv('SERPAPI_KEY')
 mongo_uri = os.getenv('MONGO_URI')
@@ -63,11 +67,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting for Gemini API
+# Rate limiting for Grok API
 last_request_time = 0
 min_request_interval = 5  # seconds between requests (more conservative)
 
-def rate_limit_gemini():
+def rate_limit_grok():
     """Simple rate limiting to prevent quota exhaustion"""
     global last_request_time
     current_time = time.time()
@@ -125,15 +129,15 @@ class ResearchResponse(BaseModel):
     queries_used: List[str]
     timestamp: str
     processing_time: float
-    model_used: str = "Google Gemini Flash Latest (FREE)"
+    model_used: str = "Mixtral 8x7B (Groq)"
 
 class HealthResponse(BaseModel):
     status: str
-    gemini_configured: bool
+    grok_configured: bool
     serpapi_configured: bool
     mongo_configured: bool = False
     timestamp: str
-    model: str = "Google Gemini Flash Latest"
+    model: str = "Grok Beta"
 
     timestamp: str
 
@@ -149,13 +153,13 @@ class ErrorResponse(BaseModel):
 
 def break_down_query(question: str) -> List[str]:
     """
-    Use Gemini to break down complex questions into search queries
-    FREE - No cost!
+    Use Grok to break down complex questions into search queries
+    With fallback to basic query generation if API fails
     """
     try:
         # Rate limiting
-        rate_limit_gemini()
-        
+        rate_limit_grok()
+
         prompt = f"""Break down this question into 3-4 specific, diverse search queries that will help find comprehensive information.
 
 Question: {question}
@@ -165,24 +169,18 @@ Example format: ["query 1", "query 2", "query 3"]
 
 Do not include any explanation, just the list."""
 
-        response = gemini_model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=200,
-            )
+        response = groq_client.chat.completions.create(
+            model=groq_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=200,
         )
-        
-        # Parse response - handle both simple and complex responses
-        try:
-            queries_str = response.text.strip()
-        except Exception:
-            # Handle complex responses where .text is not available
-            queries_str = response.candidates[0].content.parts[0].text.strip()
-        
+
+        queries_str = response.choices[0].message.content.strip()
+
         # Remove markdown code blocks if present
         queries_str = queries_str.replace('```python', '').replace('```', '').strip()
-        
+
         # Try to parse as JSON first, then fallback to eval
         try:
             import json
@@ -194,15 +192,28 @@ Do not include any explanation, just the list."""
                 # Fallback: split by newlines and clean up
                 lines = [line.strip().strip('"\']') for line in queries_str.split('\n') if line.strip()]
                 queries = [line for line in lines if line and not line.startswith('[') and not line.startswith(']')]
-        
+
         # Ensure we have a list
         if not isinstance(queries, list):
             queries = [queries_str]
+
+        return queries
+
+    except Exception as e:
+        print(f"Error with Groq API: {str(e)}")
+        # Fallback: Generate basic search queries
+        print("Using fallback query generation...")
+        return [
+            question,
+            f"{question} latest information",
+            f"{question} explained",
+            f"{question} examples"
+        ]
         
         return queries
         
     except Exception as e:
-        print(f"Error breaking down query with Gemini: {str(e)}")
+        print(f"Error breaking down query with Grok: {str(e)}")
         # Fallback: return original question
         return [question]
 
@@ -317,7 +328,7 @@ Available information:
     
     try:
         # Rate limiting
-        rate_limit_gemini()
+        rate_limit_grok()
         
         prompt = f"""You are an expert research assistant. Synthesize information from multiple sources into a clear, well-structured answer.
 
@@ -337,23 +348,31 @@ Sources:
 
 Provide a well-researched answer based on these sources. Use proper citations [1], [2], etc."""
 
-        response = gemini_model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=2000,
-            )
+        response = groq_client.chat.completions.create(
+            model=groq_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=2000,
         )
         
-        # Handle both simple and complex responses
-        try:
-            return response.text
-        except Exception:
-            # Handle complex responses
-            return response.candidates[0].content.parts[0].text
+        return response.choices[0].message.content
         
     except Exception as e:
-        return f"Error synthesizing answer: {str(e)}"
+        print(f"Error with Groq API: {str(e)}")
+        # Fallback: Return sources with basic formatting
+        print("Using fallback response generation...")
+        fallback_response = f"""Based on my research, here's what I found about your question:
+
+**Question:** {question}
+
+**Summary of Findings:**
+{chr(10).join([f"• **{s.title}**: {s.snippet[:200]}..." for s in sources[:5]])}
+
+**Sources:**
+{chr(10).join([f"[{i+1}] {s.title} - {s.url}" for i, s in enumerate(sources)])}
+
+*Note: AI synthesis is currently unavailable. Showing raw search results above.*"""
+        return fallback_response
 
 # ============================================
 # API ENDPOINTS
@@ -368,7 +387,7 @@ async def health_check():
     """
     return HealthResponse(
         status="healthy",
-        gemini_configured=bool(os.getenv('GEMINI_API_KEY')),
+        grok_configured=bool(os.getenv('GROK_API_KEY')),
         serpapi_configured=bool(os.getenv('SERPAPI_KEY')),
         mongo_configured=bool(history_collection is not None),
         timestamp=datetime.now().isoformat()
@@ -390,8 +409,8 @@ async def research_question(request: ResearchRequest):
     
     try:
         # Validate API keys
-        if not os.getenv('GEMINI_API_KEY'):
-            raise HTTPException(status_code=500, detail="Gemini API key not configured")
+        if not os.getenv('GROQ_API_KEY'):
+            raise HTTPException(status_code=500, detail="Groq API key not configured")
         if not os.getenv('SERPAPI_KEY'):
             raise HTTPException(status_code=500, detail="SerpAPI key not configured")
         
