@@ -1,3 +1,13 @@
+"""
+AI Research Assistant Backend
+
+Key Functions:
+- break_down_query(question): Routes input to 'CHAT' or 'RESEARCH' and generates search queries.
+- search_web_parallel(queries): Runs multiple SerpAPI searches in parallel for speed.
+- extract_relevant_info(results): Parses search results to find clean text snippets and links.
+- synthesize_answer(question, sources): Uses Groq AI to read sources and write a final answer.
+- research_question(request): Main API endpoint that orchestrates the entire process.
+"""
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
@@ -19,23 +29,20 @@ from openai import OpenAI
 load_dotenv()
 
 
-# Initialize Groq client
 groq_client = OpenAI(
     api_key=os.getenv('GROQ_API_KEY'),
     base_url="https://api.groq.com/openai/v1"
 )
-# Use environment variable for model, fallback to a supported model
 groq_model = os.getenv('GROQ_MODEL', "llama-3.3-70b-versatile")
 print(f"✅ Groq Client initialized with model: {groq_model}")
 serpapi_key = os.getenv('SERPAPI_KEY')
 mongo_uri = os.getenv('MONGO_URI')
 
-# Initialize MongoDB
 from motor.motor_asyncio import AsyncIOMotorClient
 try:
     mongo_client = AsyncIOMotorClient(
         mongo_uri,
-        tlsAllowInvalidCertificates=True  # Disable SSL verification for development
+        tlsAllowInvalidCertificates=True  
     )
     db = mongo_client.research_assistant
     history_collection = db.history
@@ -44,7 +51,6 @@ except Exception as e:
     print(f"❌ Failed to connect to MongoDB: {e}")
     history_collection = None
 
-# In-memory fallback for history when MongoDB is not available
 research_history_memory = []
 
 # ============================================
@@ -59,7 +65,6 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware - allows frontend to connect
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -68,12 +73,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting for Groq API
 last_request_time = 0
 min_request_interval = 5 
 
 def rate_limit():
-    """Simple rate limiting helper to prevent quota exhaustion"""
     global last_request_time
     current_time = time.time()
     time_since_last = current_time - last_request_time
@@ -83,10 +86,6 @@ def rate_limit():
         time.sleep(sleep_time)
 
     last_request_time = time.time()
-
-# ============================================
-# PYDANTIC MODELS (Request/Response Schemas)
-# ============================================
 
 class DetailLevel(str, Enum):
     brief = "brief"
@@ -160,7 +159,7 @@ def break_down_query(question: str) -> dict:
     }
     """
     try:
-        # Rate limiting
+    
         rate_limit()
 
         prompt = f"""You are an intelligent router for a Research Assistant. Analyze the user input: "{question}"
@@ -199,12 +198,10 @@ def break_down_query(question: str) -> dict:
         
         try:
             result = json.loads(response_content)
-            # Validate structure
             if "category" not in result or "payload" not in result:
                 raise ValueError("Invalid JSON structure")
             return result
         except Exception:
-            # Fallback if JSON parsing fails - assume RESEARCH
             print("Router JSON parse failed, falling back to RESEARCH")
             return {
                 "category": "RESEARCH",
@@ -213,7 +210,8 @@ def break_down_query(question: str) -> dict:
 
     except Exception as e:
         print(f"Error with Groq API while routing: {str(e)}")
-        # Fallback to simple research
+        
+        
         return {
             "category": "RESEARCH",
             "payload": [question, f"{question} latest info"]
@@ -243,7 +241,6 @@ async def search_web_async(query: str, num_results: int = 5) -> List[dict]:
                 data = await response.json()
                 results = data.get('organic_results', [])
                 
-                # Add query context
                 for result in results:
                     result['search_query'] = query
                 
@@ -263,7 +260,7 @@ async def search_web_parallel(queries: List[str], num_results: int = 5) -> List[
     tasks = [search_web_async(query, num_results) for query in queries]
     results = await asyncio.gather(*tasks)
     
-    # Flatten results
+
     all_results = []
     for result_list in results:
         all_results.extend(result_list)
@@ -278,7 +275,7 @@ def extract_relevant_info(search_results: List[dict], max_sources: int = 10) -> 
     seen_urls = set()
     
     for result in search_results:
-        # Try different possible URL field names
+
         url = result.get('link') or result.get('url') or result.get('href', '')
         
         if url in seen_urls or not url:
@@ -313,15 +310,13 @@ def synthesize_answer(question: str, sources: List[Source], detail_level: str) -
  
 Available information:
 {chr(10).join([f"[{i+1}] {s.title}: {s.snippet}" for i, s in enumerate(sources)])}"""
-    
-    # Prepare context from sources
+
     context = ""
     for i, source in enumerate(sources, 1):
         context += f"\n[{i}] **{source.title}**\n"
         context += f"Content: {source.snippet}\n"
         context += f"URL: {source.url}\n"
     
-    # Detail level instructions
     detail_instructions = {
         "brief": "Provide a concise 2-3 paragraph answer.",
         "moderate": "Provide a comprehensive answer with 4-6 paragraphs.",
@@ -329,7 +324,6 @@ Available information:
     }
     
     try:
-        # Rate limiting
         rate_limit()
 
         prompt = f"""You are an expert research assistant. Synthesize information from multiple sources into a clear, well-structured answer.
@@ -363,7 +357,6 @@ Provide a well-researched answer based on these sources. Use proper citations [1
         error_msg = str(e)
         print(f"Error with Groq API: {error_msg}")
         
-        # Enhanced Fallback: Show error message clearly
         fallback_response = f"""**⚠️ AI Synthesis Failed**
         
 *System Error: {error_msg}*
@@ -414,18 +407,15 @@ async def research_question(request: ResearchRequest):
     start_time = time.time()
     
     try:
-        # Validate API keys
         if not os.getenv('GROQ_API_KEY'):
             raise HTTPException(status_code=500, detail="Groq API key not configured")
         if not os.getenv('SERPAPI_KEY'):
             raise HTTPException(status_code=500, detail="SerpAPI key not configured")
         
-        # Step 1: Route and Break down query
         router_response = break_down_query(request.question)
         category = router_response.get("category", "RESEARCH")
         payload = router_response.get("payload")
 
-        # CASE 1: CHAT (Return immediate response)
         if category == "CHAT":
             return ResearchResponse(
                 question=request.question,
@@ -436,17 +426,13 @@ async def research_question(request: ResearchRequest):
                 processing_time=time.time() - start_time
             )
 
-        # CASE 2: RESEARCH (Proceed with search)
-        # Ensure payload is a list of strings for research
         if isinstance(payload, str):
             queries = [payload]
         else:
             queries = payload
 
-        # Step 2: Search web (parallel for speed)
         search_results = await search_web_parallel(queries, request.num_sources)
         
-        # Step 3: Extract relevant information
         sources = extract_relevant_info(search_results, max_sources=10)
         
         if not sources:
@@ -455,17 +441,14 @@ async def research_question(request: ResearchRequest):
                 detail="No relevant sources found. Try rephrasing your question."
             )
         
-        # Step 4: Synthesize answer
         answer = synthesize_answer(
             request.question,
             sources,
             request.detail_level.value
         )
         
-        # Calculate processing time
         processing_time = time.time() - start_time
         
-        # Create response
         response = ResearchResponse(
             question=request.question,
             answer=answer,
@@ -475,7 +458,6 @@ async def research_question(request: ResearchRequest):
             processing_time=processing_time
         )
         
-        # Save to history (MongoDB or Memory)
         history_item = response.dict()
         
         if history_collection is not None:
@@ -496,16 +478,13 @@ async def get_history(limit: int = 10):
     Get recent research history from MongoDB
     """
     if history_collection is not None:
-        # Fetch from MongoDB
         cursor = history_collection.find().sort("timestamp", -1).limit(limit)
         history = await cursor.to_list(length=limit)
         
-        # Convert ObjectId to string for JSON serializatio
         for item in history:
             if "_id" in item:
                 item["_id"] = str(item["_id"])
     else:
-        # Fallback to memory
         history = research_history_memory[-limit:]
 
     return {
