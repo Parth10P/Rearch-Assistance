@@ -24,8 +24,9 @@ groq_client = OpenAI(
     api_key=os.getenv('GROQ_API_KEY'),
     base_url="https://api.groq.com/openai/v1"
 )
-groq_model = "llama3-8b-8192"  # Groq's Llama 3 8B model
-
+# Use environment variable for model, fallback to a supported model
+groq_model = os.getenv('GROQ_MODEL', "llama-3.3-70b-versatile")
+print(f"✅ Groq Client initialized with model: {groq_model}")
 serpapi_key = os.getenv('SERPAPI_KEY')
 mongo_uri = os.getenv('MONGO_URI')
 
@@ -95,7 +96,7 @@ class DetailLevel(str, Enum):
 class ResearchRequest(BaseModel):
     question: str = Field(
         ..., 
-        min_length=10,
+        min_length=2,
         max_length=500,
         description="The research question to answer"
     )
@@ -112,8 +113,8 @@ class ResearchRequest(BaseModel):
     
     @validator('question')
     def validate_question(cls, v):
-        if len(v.strip()) < 10:
-            raise ValueError('Question must be at least 10 characters')
+        if len(v.strip()) < 2:
+            raise ValueError('Question must be at least 2 characters')
         return v.strip()
 
 class Source(BaseModel):
@@ -151,6 +152,7 @@ class ErrorResponse(BaseModel):
 
 def break_down_query(question: str) -> List[str]:
     """Use the LLM (Groq) to break a complex question into 3-4 search queries.
+    Also checks for greetings or gibberish.
 
     Falls back to simple heuristic queries on any error.
     """
@@ -158,14 +160,14 @@ def break_down_query(question: str) -> List[str]:
         # Rate limiting
         rate_limit()
 
-        prompt = f"""Break down this question into 3-4 specific, diverse search queries that will help find comprehensive information.
+        prompt = f"""Analyze the user input: "{question}"
 
-Question: {question}
+Classification Rules:
+1. If it is a greeting (e.g., "hello", "hi", "good morning"), return strictly: ["GREETING"]
+2. If it is gibberish/nonsense (e.g., "asdf", "jkl;", "hgfcghvjbkn"), return strictly: ["INVALID"]
+3. If it is a valid topic/question, break it down into 3-4 distinct search queries.
 
-Return ONLY a valid Python list of strings, nothing else.
-Example format: ["query 1", "query 2", "query 3"]
-
-Do not include any explanation, just the list."""
+Return ONLY a valid Python list of strings. No code blocks."""
 
         response = groq_client.chat.completions.create(
             model=groq_model,
@@ -343,20 +345,24 @@ Provide a well-researched answer based on these sources. Use proper citations [1
         return response.choices[0].message.content
         
     except Exception as e:
-        print(f"Error with Groq API: {str(e)}")
-        # Fallback: Return sources with basic formatting
-        print("Using fallback response generation...")
-        fallback_response = f"""Based on my research, here's what I found about your question:
- 
+        error_msg = str(e)
+        print(f"Error with Groq API: {error_msg}")
+        
+        # Enhanced Fallback: Show error message clearly
+        fallback_response = f"""**⚠️ AI Synthesis Failed**
+        
+*System Error: {error_msg}*
+
+Since I couldn't synthesize a summary, here are the raw search results:
+
 **Question:** {question}
- 
-**Summary of Findings:**
+
+**Summary of Findings (Raw Snippets):**
 {chr(10).join([f"• **{s.title}**: {s.snippet[:200]}..." for s in sources[:5]])}
- 
+
 **Sources:**
 {chr(10).join([f"[{i+1}] {s.title} - {s.url}" for i, s in enumerate(sources)])}
- 
-*Note: AI synthesis is currently unavailable. Showing raw search results above.*"""
+"""
         return fallback_response
  
 # ============================================
@@ -402,6 +408,27 @@ async def research_question(request: ResearchRequest):
         # Step 1: Break down query
         queries = break_down_query(request.question)
         
+        # Handle Edge Cases (Greeting / Invalid)
+        if queries == ["GREETING"]:
+            return ResearchResponse(
+                question=request.question,
+                answer="Hello! I am your AI research assistant. I can help you find information on any topic. What would you like to research today?",
+                sources=[],
+                queries_used=[],
+                timestamp=datetime.now().isoformat(),
+                processing_time=time.time() - start_time
+            )
+            
+        if queries == ["INVALID"]:
+            return ResearchResponse(
+                question=request.question,
+                answer="I'm sorry, I didn't quite catch that. It looks like the input might be unclear or random characters. Could you please rephrase your question?",
+                sources=[],
+                queries_used=[],
+                timestamp=datetime.now().isoformat(),
+                processing_time=time.time() - start_time
+            )
+
         # Step 2: Search web (parallel for speed)
         search_results = await search_web_parallel(queries, request.num_sources)
         
