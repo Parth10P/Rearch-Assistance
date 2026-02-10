@@ -150,59 +150,74 @@ class ErrorResponse(BaseModel):
 # CORE RESEARCH FUNCTIONS
 # ============================================
 
-def break_down_query(question: str) -> List[str]:
-    """Use the LLM (Groq) to break a complex question into 3-4 search queries.
-    Also checks for greetings or gibberish.
+def break_down_query(question: str) -> dict:
+    """Use the LLM (Groq) to classify the user's intent (CHAT vs RESEARCH) and generate queries if needed.
 
-    Falls back to simple heuristic queries on any error.
+    Returns a JSON object:
+    {
+        "category": "CHAT" | "RESEARCH",
+        "payload": "Response text" | ["query1", "query2"]
+    }
     """
     try:
         # Rate limiting
         rate_limit()
 
-        prompt = f"""Analyze the user input: "{question}"
+        prompt = f"""You are an intelligent router for a Research Assistant. Analyze the user input: "{question}"
 
-Classification Rules:
-1. If it is a greeting (e.g., "hello", "hi", "good morning"), return strictly: ["GREETING"]
-2. If it is gibberish/nonsense (e.g., "asdf", "jkl;", "hgfcghvjbkn"), return strictly: ["INVALID"]
-3. If it is a valid topic/question, break it down into 3-4 distinct search queries.
+        Determine if this is a "CHAT" (greeting, small talk, logic puzzles, general knowledge not requiring web search) or "RESEARCH" (requires looking up current info, specific facts, or detailed topics).
 
-Return ONLY a valid Python list of strings. No code blocks."""
+        Output strictly valid JSON with this format:
+        
+        CASE 1: CHAT (Greetings, jokes, simple questions)
+        {{
+            "category": "CHAT",
+            "payload": "Your direct, helpful, and polite response here."
+        }}
+
+        CASE 2: RESEARCH (Weather, News, Stock Prices, History, Complex Topics)
+        {{
+            "category": "RESEARCH",
+            "payload": ["query 1", "query 2", "query 3"]
+        }}
+
+        Constraint for RESEARCH Queries:
+        - YOU MUST preserve key entities (Location, Person, Date, Specific Technology) from the original question in EVERY generated query.
+        - Example: "Weather in India" -> ["weather forecast India", "current weather India"]
+        
+        Return ONLY the JSON. No preamble."""
 
         response = groq_client.chat.completions.create(
             model=groq_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=200,
+            max_tokens=500,
+            response_format={"type": "json_object"}
         )
 
-        queries_str = response.choices[0].message.content.strip()
-        queries_str = queries_str.replace('```python', '').replace('```', '').strip()
-
-        # Try to parse as JSON first, then fallback to eval, then simple newline split
+        response_content = response.choices[0].message.content.strip()
+        
         try:
-            queries = json.loads(queries_str)
+            result = json.loads(response_content)
+            # Validate structure
+            if "category" not in result or "payload" not in result:
+                raise ValueError("Invalid JSON structure")
+            return result
         except Exception:
-            try:
-                queries = eval(queries_str)
-            except Exception:
-                lines = [line.strip().strip('\"\'') for line in queries_str.split('\n') if line.strip()]
-                queries = [line for line in lines if line and not line.startswith('[') and not line.startswith(']')]
-
-        if not isinstance(queries, list):
-            queries = [str(queries)]
-
-        return queries
+            # Fallback if JSON parsing fails - assume RESEARCH
+            print("Router JSON parse failed, falling back to RESEARCH")
+            return {
+                "category": "RESEARCH",
+                "payload": [question, f"{question} details", f"{question} specific info"]
+            }
 
     except Exception as e:
-        print(f"Error with Groq API while breaking query: {str(e)}")
-        # Fallback queries
-        return [
-            question,
-            f"{question} latest information",
-            f"{question} explained",
-            f"{question} examples"
-        ]
+        print(f"Error with Groq API while routing: {str(e)}")
+        # Fallback to simple research
+        return {
+            "category": "RESEARCH",
+            "payload": [question, f"{question} latest info"]
+        }
 
 async def search_web_async(query: str, num_results: int = 5) -> List[dict]:
     """
@@ -405,29 +420,28 @@ async def research_question(request: ResearchRequest):
         if not os.getenv('SERPAPI_KEY'):
             raise HTTPException(status_code=500, detail="SerpAPI key not configured")
         
-        # Step 1: Break down query
-        queries = break_down_query(request.question)
-        
-        # Handle Edge Cases (Greeting / Invalid)
-        if queries == ["GREETING"]:
+        # Step 1: Route and Break down query
+        router_response = break_down_query(request.question)
+        category = router_response.get("category", "RESEARCH")
+        payload = router_response.get("payload")
+
+        # CASE 1: CHAT (Return immediate response)
+        if category == "CHAT":
             return ResearchResponse(
                 question=request.question,
-                answer="Hello! I am your AI research assistant. I can help you find information on any topic. What would you like to research today?",
+                answer=str(payload),
                 sources=[],
                 queries_used=[],
                 timestamp=datetime.now().isoformat(),
                 processing_time=time.time() - start_time
             )
-            
-        if queries == ["INVALID"]:
-            return ResearchResponse(
-                question=request.question,
-                answer="I'm sorry, I didn't quite catch that. It looks like the input might be unclear or random characters. Could you please rephrase your question?",
-                sources=[],
-                queries_used=[],
-                timestamp=datetime.now().isoformat(),
-                processing_time=time.time() - start_time
-            )
+
+        # CASE 2: RESEARCH (Proceed with search)
+        # Ensure payload is a list of strings for research
+        if isinstance(payload, str):
+            queries = [payload]
+        else:
+            queries = payload
 
         # Step 2: Search web (parallel for speed)
         search_results = await search_web_parallel(queries, request.num_sources)
@@ -486,7 +500,7 @@ async def get_history(limit: int = 10):
         cursor = history_collection.find().sort("timestamp", -1).limit(limit)
         history = await cursor.to_list(length=limit)
         
-        # Convert ObjectId to string for JSON serialization
+        # Convert ObjectId to string for JSON serializatio
         for item in history:
             if "_id" in item:
                 item["_id"] = str(item["_id"])
