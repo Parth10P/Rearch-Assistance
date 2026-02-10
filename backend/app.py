@@ -24,8 +24,9 @@ groq_client = OpenAI(
     api_key=os.getenv('GROQ_API_KEY'),
     base_url="https://api.groq.com/openai/v1"
 )
-groq_model = "llama3-8b-8192"  # Groq's Llama 3 8B model
-
+# Use environment variable for model, fallback to a supported model
+groq_model = os.getenv('GROQ_MODEL', "llama-3.3-70b-versatile")
+print(f"✅ Groq Client initialized with model: {groq_model}")
 serpapi_key = os.getenv('SERPAPI_KEY')
 mongo_uri = os.getenv('MONGO_URI')
 
@@ -343,20 +344,24 @@ Provide a well-researched answer based on these sources. Use proper citations [1
         return response.choices[0].message.content
         
     except Exception as e:
-        print(f"Error with Groq API: {str(e)}")
-        # Fallback: Return sources with basic formatting
-        print("Using fallback response generation...")
-        fallback_response = f"""Based on my research, here's what I found about your question:
- 
+        error_msg = str(e)
+        print(f"Error with Groq API: {error_msg}")
+        
+        # Enhanced Fallback: Show error message clearly
+        fallback_response = f"""**⚠️ AI Synthesis Failed**
+        
+*System Error: {error_msg}*
+
+Since I couldn't synthesize a summary, here are the raw search results:
+
 **Question:** {question}
- 
-**Summary of Findings:**
+
+**Summary of Findings (Raw Snippets):**
 {chr(10).join([f"• **{s.title}**: {s.snippet[:200]}..." for s in sources[:5]])}
- 
+
 **Sources:**
 {chr(10).join([f"[{i+1}] {s.title} - {s.url}" for i, s in enumerate(sources)])}
- 
-*Note: AI synthesis is currently unavailable. Showing raw search results above.*"""
+"""
         return fallback_response
  
 # ============================================
