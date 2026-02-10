@@ -28,13 +28,15 @@ AI Research Assistant searches the web, aggregates multi-source evidence, and us
 
 ---
 
-## Tech Stack & Rationale
+## Tech Stack
 
-- **Backend:** Python 3.13 + FastAPI, MongoDB(Database)
-- **LLM:** Google Gemini via OpenAI => Groq api
-- **Search:** SerpAPI — reliable search results with a free tier for prototyping.
-
-- **Frontend:** React + Vite + TailwindCSS and responsive styling.
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Python 3.11+, FastAPI |
+| **LLM** | Groq (Llama-3.3-70b-versatile) |
+| **Search** | SerpAPI |
+| **Frontend** | React + Vite + TailwindCSS |
+---
 
 ## Architecture
 
